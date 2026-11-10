@@ -194,6 +194,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
 <div id="mapwrap"><div id="rot"><div id="map"></div></div>
   <div class="mapbtns ov">
     <button class="fab" id="ov-locate" aria-label="Show my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    <button class="fab" id="ov-layers" aria-label="Map style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5zM2 13l10 5 10-5M2 17.5l10 5 10-5"/></svg></button>
     <button class="fab" id="ov-fit" aria-label="Show whole island"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   </div>
   <div class="maplegend" id="maplegend"></div>
@@ -223,6 +224,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
   <div id="speed" aria-label="Speed"><b class="num" id="nspeed">0</b><span>km/h</span></div>
   <div class="navfabs">
     <button class="fab" id="markbtn" aria-label="Mark an observation here"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><path d="M12 7v5M12 14.5v.5"/></svg></button>
+    <button class="fab" id="nav-layers" aria-label="Map style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5zM2 13l10 5 10-5M2 17.5l10 5 10-5"/></svg></button>
     <button class="fab" id="orient" aria-label="Switch map orientation">N</button>
     <button class="fab" id="recenter" aria-label="Re-centre on my position" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3 19 21 12 17 5 21z"/></svg></button>
   </div>
@@ -274,6 +276,13 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:v
   <label for="mark-note" class="meta">Note (optional)</label>
   <textarea id="mark-note" placeholder="e.g. no data on my.t for 2 km, Emtel fine"></textarea>
   <div class="btnrow" style="margin-top:12px"><button class="btn" id="mark-save" disabled>Save mark</button><button class="btn sec" id="mark-cancel">Cancel</button></div>
+</div></div>
+
+<div class="sheet" id="sh-layers" hidden><div class="card"><div class="grab"></div>
+  <h2>Map style</h2>
+  <p class="sub">Street and satellite maps download images over mobile data. On the two test phones, keep the offline map so the map does not add traffic to the nPerf measurements.</p>
+  <div class="list" id="ly-list"></div>
+  <button class="btn sec" id="ly-close" style="margin-top:10px">Close</button>
 </div></div>
 
 <div class="sheet" id="sh-confirm" hidden><div class="card"><div class="grab"></div>

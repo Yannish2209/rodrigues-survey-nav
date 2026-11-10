@@ -34,6 +34,8 @@ S = Object.assign({}, DEF, S);
 S.settings = Object.assign({}, DEF.settings, S.settings || {});
 S.ui = Object.assign({}, DEF.ui, S.ui || {});
 S.legs = S.legs || {}; S.obs = S.obs || [];
+let routesChanged = false;
+if (S.dataVersion !== D.version) { if (Object.keys(S.legs).length) routesChanged = true; S.legs = {}; S.active = null; S.dataVersion = D.version; } // new routes: old progress no longer lines up
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Phone storage is full: export your log'); } }
 const LS = id => S.legs[id] || (S.legs[id] = {idx: 0, elapsed: 0, trace: [], done: false, started: null, finished: null});
 
@@ -80,8 +82,21 @@ map.fitBounds([[-19.765, 63.335], [-19.665, 63.51]]);
 map.attributionControl.setPrefix(false).addAttribution('© OpenStreetMap contributors');
 const baseG = L.layerGroup().addTo(map), ovG = L.layerGroup().addTo(map), navG = L.layerGroup(), chevG = L.layerGroup(), markG = L.layerGroup().addTo(map);
 let meMarker = null, focusLeg = null;
+const TILES = {
+  street: [L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxNativeZoom: 19, maxZoom: 19, attribution: 'Tiles © OpenStreetMap'})],
+  sat: [L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxNativeZoom: 18, maxZoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics'}),
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {maxNativeZoom: 18, maxZoom: 19, opacity: .8})]
+};
+const LAYER_NAMES = {offline: 'Offline map', street: 'Street map', sat: 'Satellite'};
+function setLayer(k) {
+  S.settings.layer = k; save();
+  Object.values(TILES).flat().forEach(t => map.removeLayer(t));
+  (TILES[k] || []).forEach(t => t.addTo(map));
+  drawBase();
+}
 function drawBase() {
   baseG.clearLayers();
+  if (S.settings.layer && S.settings.layer !== 'offline') return; // online tiles replace the offline drawing
   D.base.land.forEach(r => L.polygon(r, {color: css('--landedge'), weight: 1, fillColor: css('--land'), fillOpacity: 1, interactive: false}).addTo(baseG));
   D.base.minor.forEach(r => L.polyline(r, {color: css('--road'), weight: 2, interactive: false}).addTo(baseG));
   D.base.main.forEach(r => L.polyline(r, {color: css('--roadmain'), weight: 3.5, interactive: false}).addTo(baseG));
@@ -110,7 +125,15 @@ function drawMarks() {
     .bindPopup(`<b>${esc(o.tag)}</b><br>${esc(new Date(o.t).toLocaleString())}${o.leg ? '<br>' + esc(BY[o.leg]?.name || o.leg) + ' · km ' + fmtKm(o.km) : ''}${o.note ? '<br>' + esc(o.note) : ''}`).addTo(markG));
 }
 function redrawAll() { drawBase(); drawOverview(); if (nav.on) drawNavLeg(); renderAll(); }
-drawBase(); drawOverview();
+setLayer(S.settings.layer || 'offline'); drawOverview();
+function openLayers() {
+  const cur = S.settings.layer || 'offline';
+  $('ly-list').innerHTML = [['offline', 'Offline map', 'Built into the app. Works with no signal and uses no mobile data.'],
+    ['street', 'Street map', 'OpenStreetMap with street names and places. Needs data.'],
+    ['sat', 'Satellite', 'Aerial imagery with roads on top. Needs data.']]
+    .map(([k, t, s]) => `<button class="li" data-ly="${k}" aria-pressed="${k === cur}" style="width:100%;border:0;border-top:1px solid var(--line);background:none;text-align:left"><span class="t"><b>${k === cur ? '✓ ' : ''}${t}</b><span class="meta">${s}</span></span></button>`).join('');
+  $('sh-layers').hidden = false;
+}
 
 /* ---------------- views & tabs ---------------- */
 function showTab(v) {
@@ -317,7 +340,7 @@ function arrowSVG(t) {
 
 /* ---------------- road graph (guide me back) ---------------- */
 const G = D.graph, ADJ = G.n.map(() => []);
-G.e.forEach(([a, b, m], i) => { ADJ[a].push([b, m, i, 1]); ADJ[b].push([a, m, i, -1]); });
+G.e.forEach(([a, b, m, , ow], i) => { if (ow !== -1) ADJ[a].push([b, m, i, 1]); if (ow !== 1) ADJ[b].push([a, m, i, -1]); }); // respects one-way streets
 function nearestNode(p) { let bi = 0, bd = 1e12; for (let i = 0; i < G.n.length; i++) { const d = dist(p, G.n[i]); if (d < bd) { bd = d; bi = i; } } return [bi, bd]; }
 function shortestPath(src, dst) {
   const n = G.n.length, dd = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), pe = new Int32Array(n), pdir = new Int8Array(n);
@@ -569,6 +592,8 @@ function findPlace() {
 const MENU = [
   ['find', 'Find my place on the route', 'Jumps to the nearest part of the line ahead. Use after a detour.'],
   ['guide', 'Guide me back to the route', 'Draws the shortest road back to the line, as a red dotted line.'],
+  ['gmaps', 'Google Maps back to the route', 'Opens Google Maps with directions to the route 250 m ahead. Come back to this app afterwards.'],
+  ['layers', 'Map style', 'Offline, street map or satellite.'],
   ['skip', 'Skip the next instruction', 'For a blocked turn or a road that no longer exists.'],
   ['overview', 'Show the whole loop', 'Zooms out. Tap the arrow button to come back.'],
   ['mark', 'Mark this spot', 'No signal, slow data, blocked road… saved in your log.'],
@@ -580,6 +605,8 @@ $('menu-list').addEventListener('click', e => {
   const b = e.target.closest('[data-menu]'); if (!b) return; $('sh-menu').hidden = true; const k = b.dataset.menu, l = nav.leg;
   if (k === 'find') findPlace();
   if (k === 'guide') guideBack(true);
+  if (k === 'layers') openLayers();
+  if (k === 'gmaps') { const p = pointAt(l, idxAtKm(l, kmAt(l, nav.st.idx) + 0.25)); save(); window.open(gmapsDir(p), '_blank'); }
   if (k === 'skip') { const n = l.man.find(m => m.i > nav.st.idx + .05); if (n && n.t !== 'arrive') { nav.st.idx = n.i + .01; render(nav.lastFix || pointAt(l, nav.st.idx)); toast('Skipped: ' + n.x); } }
   if (k === 'overview') { if (S.settings.headingUp) { S.settings.headingUp = false; syncNavBtns(); applyOrientation(); } nav.follow = false; $('recenter').hidden = false; map.fitBounds(L.latLngBounds(l.pts), {padding: [40, 40]}); }
   if (k === 'mark') openMark();
@@ -605,6 +632,12 @@ $('mark-save').onclick = () => {
 $('mark-cancel').onclick = () => $('sh-mark').hidden = true;
 $('markbtn').onclick = openMark;
 
+/* ---------------- layers & Google Maps ---------------- */
+$('ov-layers').onclick = openLayers; $('nav-layers').onclick = openLayers;
+$('ly-close').onclick = () => $('sh-layers').hidden = true;
+$('ly-list').addEventListener('click', e => { const b = e.target.closest('[data-ly]'); if (!b) return; setLayer(b.dataset.ly); $('sh-layers').hidden = true; toast(LAYER_NAMES[b.dataset.ly]); });
+function gmapsDir(ll) { return `https://www.google.com/maps/dir/?api=1&destination=${ll[0].toFixed(6)},${ll[1].toFixed(6)}&travelmode=driving`; }
+
 /* ---------------- overview map buttons ---------------- */
 $('ov-locate').onclick = () => { nav.locateOnce = true; startGPS(false); toast('Finding your location…'); };
 $('ov-fit').onclick = () => { focusLeg = null; drawOverview(); map.fitBounds([[-19.765, 63.335], [-19.665, 63.51]]); };
@@ -612,7 +645,8 @@ $('ov-fit').onclick = () => { focusLeg = null; drawOverview(); map.fitBounds([[-
 /* ---------------- boot ---------------- */
 if (S.ui.day && D.days.some(d => d.key === S.ui.day) && D.days.some(d => d.date === localDate()) === false) curDay = S.ui.day;
 showTab(S.ui.tab === 'map' ? 'map' : S.ui.tab || 'today');
-syncNavBtns();
+syncNavBtns(); save();
+if (routesChanged) setTimeout(() => toast('Routes updated: loop progress was reset, marks kept', 4500), 600);
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__rsn = {nav, get S() { return S; }, match, kmAt, onFix, pointAt};
 })();

@@ -1,5 +1,5 @@
 // Offline cache: the whole app works with no signal once it has been opened.
-const CACHE = 'rsn-2.0.0';
+const CACHE = 'rsn-2.1.0';
 const FILES = ['./', './index.html', './app.js', './data.js', './leaflet.js', './leaflet.css',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'];
 
