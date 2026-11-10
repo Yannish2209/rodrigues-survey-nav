@@ -2,7 +2,7 @@
 (function () {
 const D = window.RSN, LEGS = D.legs, BY = {};
 LEGS.forEach(l => BY[l.id] = l);
-const DAYC = {sun: '--sun', mon: '--mon', tue: '--tue', wed: '--wed'};
+const DAYC = {sun: '--sun', mon: '--mon', tue: '--tue', wed: '--wed', thu: '--accent'};
 const DAYCOL_NAME = {sun: 'grey', mon: 'blue', tue: 'orange', wed: 'purple'};
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -180,7 +180,7 @@ function lunchCard(list) {
   </div>`;
 }
 function scenicCard(s) {
-  return `<div class="card"><div class="row"><h3>${esc(s.time)} · Scenery</h3><span class="pill">Sunset 18:08</span></div>
+  return `<div class="card"><div class="row"><h3>${esc(s.time)} · Highlight</h3><span class="pill">Sunset 18:08</span></div>
     <p style="margin:8px 0 2px"><b>${esc(s.name)}</b></p><div class="meta">${esc(s.note)}</div>
     <div class="btnrow" style="margin-top:10px"><a class="callbtn" href="${gmaps(s.ll)}" target="_blank" rel="noopener">🗺 Open in Google Maps</a></div></div>`;
 }
@@ -193,15 +193,18 @@ function renderToday() {
   let h = '';
   if (act) h += `<div class="card" style="border-color:var(--late)"><div class="row"><div><h3>Loop in progress</h3><div class="meta">${esc(BY[act].name)} · ${fmtKm(kmAt(BY[act], LS(act).idx))} of ${BY[act].tkm} km</div></div><button class="btn small" data-start="${act}">Resume</button></div></div>`;
   h += `<div class="daychips" role="group" aria-label="Day">${D.days.map(d => `<button aria-pressed="${d.key === curDay}" data-day="${d.key}" style="--c:var(${DAYC[d.key]})">${d.title.split(' ')[0].slice(0, 3)} ${d.title.split(' ')[1]}<small>${esc(d.sub)}</small></button>`).join('')}</div>`;
-  h += `<h2>${esc(day.title)} · ${esc(day.sub)}</h2><p class="sub">${day.legs.length} loop${day.legs.length > 1 ? 's' : ''} · ${fmtKm(dayKm)} km of drive testing${day.date === localDate() ? ' · <b>today</b>' : ''}</p>`;
+  h += `<h2>${esc(day.title)} · ${esc(day.sub)}</h2><p class="sub">${day.legs.length ? `${day.legs.length} loop${day.legs.length > 1 ? 's' : ''} · ${fmtKm(dayKm)} km of drive testing` : 'No survey today'}${day.date === localDate() ? ' · <b>today</b>' : ''}</p>`;
+  const extras = (day.extras || []).length ? `<div class="card"><h3>Besides work</h3><div class="timeline">${day.extras.map(([t, n, note, ll]) => `<div class="tl"><time class="num">${esc(t)}</time><div><b>${esc(n)}</b><div class="meta">${esc(note)}</div><a class="meta" href="${gmaps(ll)}" target="_blank" rel="noopener">Google Maps ›</a></div></div>`).join('')}</div></div>` : '';
+  if (!day.legs.length) { v.innerHTML = h + scenicCard(day.scenic) + extras + `<div class="card"><h3>Notes</h3>${day.notes.map(n => `<div class="meta" style="padding:5px 0">• ${esc(n)}</div>`).join('')}</div>`; $('topsub').textContent = day.title + ' · ' + day.sub; v.querySelector('.daychips [aria-pressed="true"]')?.scrollIntoView({inline: 'center', block: 'nearest'}); return; }
   h += `<div class="card"><div class="big-progress">${ring(Math.min(1, kmDone / TOTAL_KM), col('mon'))}<div><h3>Whole survey</h3><div class="meta">${fmtKm(kmDone)} of ${Math.round(TOTAL_KM)} km driven<br>${doneLoops} of 6 survey loops done · ${S.obs.length} mark${S.obs.length === 1 ? '' : 's'}</div></div></div></div>`;
   if (day.key === 'sun') { h += `<div class="card"><h3>Arrival evening</h3><div class="timeline">${day.notes.map(n => `<div class="meta" style="padding:6px 0">• ${esc(n)}</div>`).join('')}</div></div>` + loopCard('sun'); }
   else {
-    h += loopCard(day.legs[0]) + lunchCard(day.lunch) + loopCard(day.legs[1]) + scenicCard(day.scenic);
+    h += loopCard(day.legs[0]) + lunchCard(day.lunch) + loopCard(day.legs[1]) + scenicCard(day.scenic) + extras;
     h += `<div class="card"><h3>Notes</h3>${day.notes.map(n => `<div class="meta" style="padding:5px 0">• ${esc(n)}</div>`).join('')}</div>`;
   }
   v.innerHTML = h;
   $('topsub').textContent = day.title + ' · ' + day.sub;
+  const sel = v.querySelector('.daychips [aria-pressed="true"]'); if (sel) sel.scrollIntoView({inline: 'center', block: 'nearest'});
 }
 $('v-today').addEventListener('click', e => {
   const d = e.target.closest('[data-day]'); if (d) { curDay = d.dataset.day; S.ui.day = curDay; save(); renderToday(); return; }
